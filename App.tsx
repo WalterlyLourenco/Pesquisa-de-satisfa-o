@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, MessageSquarePlus, Database, Check } from 'lucide-react';
+import { LayoutDashboard, MessageSquarePlus, Database, Check, Lock } from 'lucide-react';
 import SurveyForm from './components/SurveyForm';
 import Dashboard from './components/Dashboard';
+import LoginModal from './components/LoginModal';
 import { SurveyResponse, ViewState } from './types';
 import { dbService } from './services/dbService';
 
@@ -9,6 +10,10 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.SURVEY);
   const [surveyData, setSurveyData] = useState<SurveyResponse[]>([]);
   const [showToast, setShowToast] = useState(false);
+  
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Load data from "Database" on mount
   useEffect(() => {
@@ -39,8 +44,33 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDashboardClick = () => {
+    if (isAuthenticated) {
+      setCurrentView(ViewState.DASHBOARD);
+    } else {
+      setShowLoginModal(true);
+    }
+  };
+
+  const handleLogin = (password: string) => {
+    if (password === 'Alterar123') {
+      setIsAuthenticated(true);
+      setShowLoginModal(false);
+      setCurrentView(ViewState.DASHBOARD);
+    } else {
+      alert("Senha incorreta!");
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col relative">
+      {/* Auth Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)}
+        onLogin={handleLogin}
+      />
+
       {/* Toast Notification */}
       {showToast && (
         <div className="fixed top-20 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in-up">
@@ -73,14 +103,14 @@ const App: React.FC = () => {
                 <span className="hidden sm:inline">Nova Pesquisa</span>
               </button>
               <button
-                onClick={() => setCurrentView(ViewState.DASHBOARD)}
+                onClick={handleDashboardClick}
                 className={`px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
                   currentView === ViewState.DASHBOARD 
                     ? 'bg-blue-50 text-blue-700' 
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <LayoutDashboard className="w-4 h-4" />
+                {isAuthenticated ? <LayoutDashboard className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                 <span className="hidden sm:inline">Dashboard</span>
               </button>
             </div>
@@ -100,7 +130,14 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div className="animate-fade-in">
-            <Dashboard data={surveyData} onReset={handleResetDatabase} />
+            {isAuthenticated ? (
+              <Dashboard data={surveyData} onReset={handleResetDatabase} />
+            ) : (
+              // Fallback protection if manual state change happens
+              <div className="flex items-center justify-center h-64 text-gray-500">
+                Acesso negado.
+              </div>
+            )}
           </div>
         )}
       </main>
