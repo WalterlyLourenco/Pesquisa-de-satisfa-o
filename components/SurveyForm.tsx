@@ -1,37 +1,63 @@
 import React, { useState } from 'react';
-import { Send, Star, Clock, CheckCircle, MessageSquare, User } from 'lucide-react';
+import { Send, Star, User, AlertCircle, MousePointerClick, CalendarClock, Wrench } from 'lucide-react';
 import { SurveyResponse } from '../types';
 
 interface SurveyFormProps {
   onSubmit: (data: Omit<SurveyResponse, 'id' | 'timestamp'>) => void;
+  onValidateTicket: (ticketId: string) => boolean;
 }
 
-const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
+const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit, onValidateTicket }) => {
   const [ticketId, setTicketId] = useState('');
+  const [ticketError, setTicketError] = useState('');
   const [customerId, setCustomerId] = useState('');
-  const [speedRating, setSpeedRating] = useState(0);
-  const [resolutionRating, setResolutionRating] = useState(0);
-  const [qualityRating, setQualityRating] = useState(0);
+  const [easeRating, setEaseRating] = useState(0);
+  const [processRating, setProcessRating] = useState(0);
+  const [solutionRating, setSolutionRating] = useState(0);
   const [comment, setComment] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
+  // Handle numeric only input for Ticket ID
+  const handleTicketChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow only numbers
+    if (/^\d*$/.test(value)) {
+      setTicketId(value);
+      setTicketError('');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (speedRating === 0 || resolutionRating === 0 || qualityRating === 0) {
-      alert("Por favor, preencha todas as avaliações.");
+    setTicketError('');
+
+    // Validation: All fields mandatory except comment
+    if (!ticketId.trim()) {
+      setTicketError("O número do chamado é obrigatório.");
       return;
     }
     if (!customerId.trim()) {
-      alert("Por favor, identifique-se (ID ou Email).");
+      alert("Por favor, preencha a identificação do cliente.");
+      return;
+    }
+    if (easeRating === 0 || processRating === 0 || solutionRating === 0) {
+      alert("Por favor, preencha todas as etapas da avaliação de qualidade.");
+      return;
+    }
+
+    // Validate Ticket ID uniqueness
+    const exists = onValidateTicket(ticketId);
+    if (exists) {
+      setTicketError("Este número de chamado já possui uma avaliação registrada.");
       return;
     }
 
     onSubmit({
-      ticketId: ticketId || `TKT-${Math.floor(Math.random() * 10000)}`,
+      ticketId: ticketId,
       customerId: customerId,
-      speedRating,
-      resolutionRating,
-      qualityRating,
+      easeRating,
+      processRating,
+      solutionRating,
       comment
     });
     setSubmitted(true);
@@ -39,21 +65,29 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
 
   const RatingGroup = ({ 
     label, 
+    description,
     value, 
     setValue, 
     icon: Icon 
   }: { 
     label: string, 
+    description: string,
     value: number, 
     setValue: (val: number) => void,
     icon: React.ElementType
   }) => (
-    <div className="mb-6">
-      <div className="flex items-center gap-2 mb-2 text-gray-700 font-medium">
-        <Icon className="w-5 h-5 text-blue-600" />
-        <span>{label}</span>
+    <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-100">
+      <div className="flex items-start gap-3 mb-3">
+        <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+            <Icon className="w-6 h-6" />
+        </div>
+        <div>
+            <h3 className="font-semibold text-gray-800">{label}</h3>
+            <p className="text-xs text-gray-500 mt-1">{description}</p>
+        </div>
       </div>
-      <div className="flex gap-2">
+      
+      <div className="flex justify-center gap-3 mt-4">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
@@ -63,12 +97,12 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
               star <= value ? 'text-yellow-400' : 'text-gray-300'
             }`}
           >
-            <Star className="w-8 h-8 fill-current" />
+            <Star className="w-10 h-10 fill-current" />
           </button>
         ))}
       </div>
-      <div className="flex justify-between text-xs text-gray-400 mt-1 px-1">
-        <span>Insatisfeito</span>
+      <div className="flex justify-between text-xs text-gray-400 mt-2 px-2">
+        <span>Muito Insatisfeito</span>
         <span>Muito Satisfeito</span>
       </div>
     </div>
@@ -78,49 +112,65 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
     return (
       <div className="max-w-lg mx-auto bg-white rounded-xl shadow-lg p-8 text-center animate-fade-in">
         <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle className="w-8 h-8" />
+          <Wrench className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Obrigado!</h2>
-        <p className="text-gray-600 mb-6">Sua avaliação é fundamental para melhorarmos nosso tempo de atendimento.</p>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Avaliação Recebida!</h2>
+        <p className="text-gray-600 mb-6">Suas informações sobre a qualidade do atendimento foram registradas com sucesso.</p>
         <button 
           onClick={() => {
             setSubmitted(false);
             setTicketId('');
+            setTicketError('');
             setCustomerId('');
-            setSpeedRating(0);
-            setResolutionRating(0);
-            setQualityRating(0);
+            setEaseRating(0);
+            setProcessRating(0);
+            setSolutionRating(0);
             setComment('');
           }}
           className="text-blue-600 font-medium hover:underline"
         >
-          Enviar nova avaliação
+          Avaliar outro chamado
         </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
-      <div className="bg-blue-600 p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">Pesquisa de Satisfação</h1>
-        <p className="text-blue-100 text-sm">Ajude-nos a reduzir nosso tempo de resposta avaliando seu último chamado.</p>
+    <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
+      <div className="bg-blue-700 p-8 text-white text-center">
+        <h1 className="text-3xl font-bold mb-2">Qualidade do Atendimento</h1>
+        <p className="text-blue-100 text-sm max-w-lg mx-auto">
+          Avalie detalhadamente sua experiência desde a abertura até a conclusão técnica.
+        </p>
       </div>
       
       <form onSubmit={handleSubmit} className="p-6 md:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Número do Chamado (Opcional)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Número do Chamado <span className="text-red-500">*</span></label>
               <input
                 type="text"
+                inputMode="numeric"
                 value={ticketId}
-                onChange={(e) => setTicketId(e.target.value)}
-                placeholder="Ex: TKT-1234"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                onChange={handleTicketChange}
+                placeholder="Ex: 102030"
+                required
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 outline-none transition-all font-mono text-lg tracking-wide ${
+                  ticketError 
+                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
               />
+              {ticketError && (
+                <div className="flex items-center gap-1 mt-2 text-red-500 text-xs animate-fade-in">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>{ticketError}</span>
+                </div>
+              )}
+              <p className="text-xs text-gray-400 mt-1">Apenas números permitidos.</p>
             </div>
              <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Identificação do Cliente</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Identificação do Cliente <span className="text-red-500">*</span></label>
               <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <User className="h-5 w-5 text-gray-400" />
@@ -130,54 +180,58 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit }) => {
                     required
                     value={customerId}
                     onChange={(e) => setCustomerId(e.target.value)}
-                    placeholder="Email ou Nome"
-                    className="w-full pl-10 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="Email ou Nome completo"
+                    className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
               </div>
             </div>
         </div>
 
-        <RatingGroup 
-          label="Velocidade da Primeira Resposta" 
-          value={speedRating} 
-          setValue={setSpeedRating} 
-          icon={Clock}
-        />
+        <div className="space-y-2">
+            <RatingGroup 
+            label="Facilidade de Abertura" 
+            description="Quão fácil foi encontrar o canal de suporte e registrar sua solicitação inicial?"
+            value={easeRating} 
+            setValue={setEaseRating} 
+            icon={MousePointerClick}
+            />
 
-        <RatingGroup 
-          label="Tempo Total até Solução" 
-          value={resolutionRating} 
-          setValue={setResolutionRating} 
-          icon={CheckCircle}
-        />
+            <RatingGroup 
+            label="Direcionamento e Agendamento" 
+            description="O chamado foi direcionado para o time correto e o agendamento foi respeitado?"
+            value={processRating} 
+            setValue={setProcessRating} 
+            icon={CalendarClock}
+            />
 
-        <RatingGroup 
-          label="Qualidade da Solução" 
-          value={qualityRating} 
-          setValue={setQualityRating} 
-          icon={Star}
-        />
+            <RatingGroup 
+            label="Ações e Conclusão Técnica" 
+            description="As ações tomadas pelo técnico foram assertivas para resolver o problema definitivamente?"
+            value={solutionRating} 
+            setValue={setSolutionRating} 
+            icon={Wrench}
+            />
+        </div>
 
         <div className="mb-8">
-          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-blue-600" />
-            Comentários Adicionais
+          <label className="block text-sm font-bold text-gray-700 mb-2">
+            Comentários Adicionais (Opcional)
           </label>
           <textarea
-            rows={4}
+            rows={3}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="O que poderíamos ter feito para resolver seu problema mais rápido?"
+            placeholder="Detalhe se houve algum problema específico no processo..."
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none"
           />
         </div>
 
         <button
           type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform active:scale-95 duration-150"
+          className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-4 px-6 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform active:scale-[0.98] duration-150"
         >
           <Send className="w-5 h-5" />
-          Enviar Avaliação
+          Enviar Avaliação de Qualidade
         </button>
       </form>
     </div>

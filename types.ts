@@ -2,9 +2,9 @@ export interface SurveyResponse {
   id: string;
   ticketId: string;
   customerId: string;
-  speedRating: number; // 1-5
-  resolutionRating: number; // 1-5
-  qualityRating: number; // 1-5
+  easeRating: number; // Facilidade de Abertura (1-5)
+  processRating: number; // Direcionamento e Agendamento (1-5)
+  solutionRating: number; // Ações e Conclusão (1-5)
   comment: string;
   timestamp: string;
 }

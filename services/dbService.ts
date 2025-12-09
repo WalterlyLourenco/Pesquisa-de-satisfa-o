@@ -1,16 +1,16 @@
 import { SurveyResponse } from '../types';
 
-const DB_KEY = 'tickettrack_db_v1';
+const DB_KEY = 'tickettrack_db_v2';
 
-// Dados iniciais (Seed Data) para o banco não começar vazio na demonstração
+// Dados iniciais (Seed Data) atualizados para o novo formato
 const SEED_DATA: SurveyResponse[] = [
-  { id: '1', ticketId: 'TKT-1001', customerId: 'joao@empresa.com', speedRating: 4, resolutionRating: 5, qualityRating: 5, comment: 'Resolvido rápido, muito bom.', timestamp: new Date(Date.now() - 86400000 * 5).toISOString() },
-  { id: '2', ticketId: 'TKT-1024', customerId: 'maria.s@client.org', speedRating: 2, resolutionRating: 3, qualityRating: 4, comment: 'Demorou muito para responder o primeiro email.', timestamp: new Date(Date.now() - 86400000 * 4).toISOString() },
-  { id: '3', ticketId: 'TKT-1035', customerId: 'admin@tech.net', speedRating: 5, resolutionRating: 5, qualityRating: 5, comment: 'Excelente atendimento do suporte.', timestamp: new Date(Date.now() - 86400000 * 3).toISOString() },
-  { id: '4', ticketId: 'TKT-1042', customerId: 'roberto@loja.com', speedRating: 1, resolutionRating: 2, qualityRating: 3, comment: 'Fiquei 3 dias esperando uma resposta simples.', timestamp: new Date(Date.now() - 86400000 * 2).toISOString() },
-  { id: '5', ticketId: 'TKT-1055', customerId: 'ana@startup.io', speedRating: 3, resolutionRating: 3, qualityRating: 4, comment: 'O técnico foi bom, mas o processo é burocrático.', timestamp: new Date(Date.now() - 86400000 * 1).toISOString() },
-  { id: '6', ticketId: 'TKT-1068', customerId: 'carlos.m@dev.co', speedRating: 5, resolutionRating: 4, qualityRating: 5, comment: 'Rápido e eficiente.', timestamp: new Date().toISOString() },
-  { id: '7', ticketId: 'TKT-1072', customerId: 'julia@design.studio', speedRating: 2, resolutionRating: 2, qualityRating: 2, comment: 'Não resolveram meu problema na primeira tentativa.', timestamp: new Date().toISOString() },
+  { id: '1', ticketId: '1001', customerId: 'joao@empresa.com', easeRating: 4, processRating: 5, solutionRating: 5, comment: 'Muito fácil abrir o chamado e o técnico chegou na hora.', timestamp: new Date(Date.now() - 86400000 * 5).toISOString() },
+  { id: '2', ticketId: '1024', customerId: 'maria.s@client.org', easeRating: 2, processRating: 3, solutionRating: 4, comment: 'O sistema de abertura é confuso, mas o técnico resolveu.', timestamp: new Date(Date.now() - 86400000 * 4).toISOString() },
+  { id: '3', ticketId: '1035', customerId: 'admin@tech.net', easeRating: 5, processRating: 5, solutionRating: 5, comment: 'Processo perfeito do início ao fim.', timestamp: new Date(Date.now() - 86400000 * 3).toISOString() },
+  { id: '4', ticketId: '1042', customerId: 'roberto@loja.com', easeRating: 1, processRating: 2, solutionRating: 3, comment: 'Demorei para conseguir abrir o chamado e agendaram errado.', timestamp: new Date(Date.now() - 86400000 * 2).toISOString() },
+  { id: '5', ticketId: '1055', customerId: 'ana@startup.io', easeRating: 3, processRating: 3, solutionRating: 4, comment: 'O atendimento foi bom, mas o agendamento demorou.', timestamp: new Date(Date.now() - 86400000 * 1).toISOString() },
+  { id: '6', ticketId: '1068', customerId: 'carlos.m@dev.co', easeRating: 5, processRating: 4, solutionRating: 5, comment: 'Rápido e eficiente.', timestamp: new Date().toISOString() },
+  { id: '7', ticketId: '1072', customerId: 'julia@design.studio', easeRating: 2, processRating: 2, solutionRating: 2, comment: 'O técnico não trouxe as peças necessárias para a conclusão.', timestamp: new Date().toISOString() },
 ];
 
 export const dbService = {
@@ -29,6 +29,12 @@ export const dbService = {
     }
   },
 
+  // Verifica se um chamado já possui avaliação registrada (exata)
+  checkTicketExists: (ticketId: string): boolean => {
+    const allRecords = dbService.getAll();
+    return allRecords.some(record => record.ticketId === ticketId.trim());
+  },
+
   // Insere um novo registro no banco
   add: (record: SurveyResponse): SurveyResponse[] => {
     const currentData = dbService.getAll();
@@ -42,7 +48,7 @@ export const dbService = {
     return updatedData;
   },
 
-  // Reseta o banco para o estado inicial (útil para testes)
+  // Reseta o banco para o estado inicial
   reset: (): SurveyResponse[] => {
     localStorage.setItem(DB_KEY, JSON.stringify(SEED_DATA));
     return SEED_DATA;

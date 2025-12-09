@@ -21,6 +21,11 @@ const App: React.FC = () => {
     setSurveyData(data);
   }, []);
 
+  // Validation function to prevent duplicate tickets
+  const handleValidateTicket = (ticketId: string): boolean => {
+    return dbService.checkTicketExists(ticketId);
+  };
+
   const handleSurveySubmit = (newResponse: Omit<SurveyResponse, 'id' | 'timestamp'>) => {
     const fullResponse: SurveyResponse = {
       ...newResponse,
@@ -122,7 +127,10 @@ const App: React.FC = () => {
       <main className="flex-grow py-8 bg-gray-50">
         {currentView === ViewState.SURVEY ? (
           <div className="container mx-auto px-4 animate-fade-in-up">
-            <SurveyForm onSubmit={handleSurveySubmit} />
+            <SurveyForm 
+              onSubmit={handleSurveySubmit} 
+              onValidateTicket={handleValidateTicket} 
+            />
             <div className="mt-8 text-center text-sm text-gray-400 flex justify-center items-center gap-2">
               <Database className="w-4 h-4" />
               <p>Conectado ao banco de dados local.</p>
