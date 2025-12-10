@@ -10,10 +10,14 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.SURVEY);
   const [surveyData, setSurveyData] = useState<SurveyResponse[]>([]);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState({ title: '', msg: '' });
   
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  
+  // Clear Data Modal State
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
 
   // Load data from "Database" on mount
   useEffect(() => {
@@ -38,14 +42,37 @@ const App: React.FC = () => {
     setSurveyData(updatedList);
     
     // Show feedback
+    setToastMessage({ title: 'Sucesso!', msg: 'Avaliação salva no banco de dados.' });
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleResetDatabase = () => {
-    if (confirm("Tem certeza que deseja resetar o banco de dados para os valores iniciais?")) {
-      const resetData = dbService.reset();
-      setSurveyData(resetData);
+  const handleDeleteResponse = (id: string) => {
+    // IMMEDIATE ACTION: No confirmation dialog to ensure it works
+    // Remove from Database
+    dbService.remove(id);
+    
+    // Update UI state immediately
+    setSurveyData(prevData => {
+      const newData = prevData.filter(item => item.id !== id);
+      return newData;
+    });
+
+    // Optional feedback could be added here, but keeping it fast
+  };
+
+  const handleResetDatabaseClick = () => {
+    setShowClearDataModal(true);
+  };
+
+  const handleClearDataConfirm = (password: string) => {
+    if (password === 'Service123') {
+      const emptyData = dbService.clear();
+      setSurveyData(emptyData);
+      setShowClearDataModal(false);
+      alert("Sucesso: Todas as informações foram zeradas.");
+    } else {
+      alert("Senha incorreta!");
     }
   };
 
@@ -69,20 +96,31 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col relative">
-      {/* Auth Modal */}
+      {/* Auth Modal for Dashboard Access */}
       <LoginModal 
         isOpen={showLoginModal} 
         onClose={() => setShowLoginModal(false)}
         onLogin={handleLogin}
       />
 
+      {/* Auth Modal for Clear Data Action */}
+      <LoginModal 
+        isOpen={showClearDataModal} 
+        onClose={() => setShowClearDataModal(false)}
+        onLogin={handleClearDataConfirm}
+        title="Zerar Dashboard"
+        description="ATENÇÃO: Esta ação apagará TODOS os dados permanentemente. Para confirmar, digite a senha administrativa."
+        buttonText="Confirmar Exclusão"
+        isDestructive={true}
+      />
+
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed top-20 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in-up">
+        <div className="fixed top-20 right-4 z-[100] bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in-up">
           <Check className="w-5 h-5" />
           <div>
-            <h4 className="font-bold text-sm">Sucesso!</h4>
-            <p className="text-xs text-green-100">Avaliação salva no banco de dados.</p>
+            <h4 className="font-bold text-sm">{toastMessage.title}</h4>
+            <p className="text-xs text-green-100">{toastMessage.msg}</p>
           </div>
         </div>
       )}
@@ -139,7 +177,11 @@ const App: React.FC = () => {
         ) : (
           <div className="animate-fade-in">
             {isAuthenticated ? (
-              <Dashboard data={surveyData} onReset={handleResetDatabase} />
+              <Dashboard 
+                data={surveyData} 
+                onReset={handleResetDatabaseClick} 
+                onDelete={handleDeleteResponse}
+              />
             ) : (
               // Fallback protection if manual state change happens
               <div className="flex items-center justify-center h-64 text-gray-500">

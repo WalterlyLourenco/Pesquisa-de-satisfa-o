@@ -3,19 +3,26 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, Legend
 } from 'recharts';
-import { BrainCircuit, Loader2, TrendingUp, AlertTriangle, MessageSquare, MousePointerClick, CalendarClock, Wrench, RefreshCw, Clock, Download, Search, X } from 'lucide-react';
+import { 
+  BrainCircuit, Loader2, TrendingUp, AlertTriangle, MessageSquare, 
+  MousePointerClick, CalendarClock, Wrench, RefreshCw, Clock, 
+  Download, Search, X, Trash2, LayoutGrid, LayoutList, Edit, CheckSquare
+} from 'lucide-react';
 import { SurveyResponse, AIAnalysisResult } from '../types';
 import { analyzeSurveyData } from '../services/geminiService';
 
 interface DashboardProps {
   data: SurveyResponse[];
   onReset?: () => void;
+  onDelete?: (id: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete }) => {
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [showManageModal, setShowManageModal] = useState(false);
 
   // Filter Data based on Search Term
   const filteredData = useMemo(() => {
@@ -36,7 +43,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     const avgProcess = filteredData.reduce((acc, cur) => acc + cur.processRating, 0) / total;
     const avgSolution = filteredData.reduce((acc, cur) => acc + cur.solutionRating, 0) / total;
     
-    const recentTrend = filteredData.slice(-20).map((d) => ({ // Increased to 20 to show more trend context
+    const recentTrend = filteredData.slice(-20).map((d) => ({ 
       name: `#${d.ticketId}`,
       ease: d.easeRating,
       process: d.processRating,
@@ -49,7 +56,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
   const handleRunAnalysis = async () => {
     setLoadingAnalysis(true);
     try {
-      // Analyze currently visible data
       const result = await analyzeSurveyData(filteredData);
       setAnalysis(result);
     } catch (error) {
@@ -65,43 +71,28 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       return;
     }
 
-    // Define CSV Headers
     const headers = [
-      "ID Interno",
-      "Chamado",
-      "Cliente",
-      "Facilidade Abertura (1-5)",
-      "Processo/Agendamento (1-5)",
-      "Solução Técnica (1-5)",
-      "Comentário",
-      "Data/Hora"
+      "ID Interno", "Chamado", "Cliente", 
+      "Facilidade Abertura (1-5)", "Processo/Agendamento (1-5)", "Solução Técnica (1-5)", 
+      "Comentário", "Data/Hora"
     ];
 
-    // Convert data to CSV format using Semicolon (;) for better Excel compatibility in many regions
     const csvRows = [
-      headers.join(';'), // Header row
+      headers.join(';'),
       ...filteredData.map(row => {
-        // Escape quotes within comments and wrap in quotes. 
-        // Remove line breaks from comments to prevent breaking CSV rows.
         const cleanComment = row.comment 
           ? `"${row.comment.replace(/"/g, '""').replace(/(\r\n|\n|\r)/gm, " ")}"` 
           : '""';
         const cleanCustomer = `"${row.customerId}"`; 
 
         return [
-          row.id,
-          row.ticketId,
-          cleanCustomer,
-          row.easeRating,
-          row.processRating,
-          row.solutionRating,
-          cleanComment,
-          row.timestamp
+          row.id, row.ticketId, cleanCustomer,
+          row.easeRating, row.processRating, row.solutionRating,
+          cleanComment, row.timestamp
         ].join(';');
       })
     ];
 
-    // Add BOM (\uFEFF) so Excel recognizes it as UTF-8
     const csvString = '\uFEFF' + csvRows.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -127,8 +118,24 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
     </div>
   );
 
+  const handleDeleteClick = (e: React.MouseEvent, id: string) => {
+    // CRITICAL: Stop propagation to prevent card click events or parent containers from intercepting
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (onDelete) {
+      onDelete(id);
+    }
+  };
+
+  const getRatingColor = (rating: number) => {
+    if (rating >= 4) return 'bg-green-100 text-green-700';
+    if (rating <= 2) return 'bg-red-100 text-red-700';
+    return 'bg-yellow-100 text-yellow-700';
+  };
+
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
+    <div className="p-6 max-w-7xl mx-auto space-y-8 relative">
       
       {/* Header & Controls */}
       <div className="flex flex-col gap-6">
@@ -146,21 +153,30 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 Exportar Excel
               </button>
 
+              <button
+                onClick={() => setShowManageModal(true)}
+                className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+              >
+                <Edit className="w-4 h-4" />
+                Gerenciar Registros
+              </button>
+
               <div className="h-8 w-px bg-gray-300 mx-1 hidden md:block"></div>
 
               {onReset && (
                 <button 
                   onClick={onReset}
-                  className="text-gray-500 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors"
-                  title="Resetar Banco de Dados"
+                  className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-red-200"
+                  title="Zerar Banco de Dados (Requer Senha)"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" />
+                  Zerar Dashboard
                 </button>
               )}
           </div>
         </div>
 
-        {/* Filter Bar */}
+        {/* Filter & View Mode Bar */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -180,8 +196,38 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
               </button>
             )}
           </div>
-          <div className="text-sm text-gray-500">
-            Exibindo <strong>{metrics.total}</strong> resultados {searchTerm && '(filtrado)'}
+          
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-gray-500 mr-2">
+              Visualização:
+            </div>
+            <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+              <button 
+                onClick={() => setViewMode('cards')}
+                className={`p-2 rounded-md transition-all flex items-center gap-2 text-sm ${
+                  viewMode === 'cards' 
+                    ? 'bg-white text-blue-600 shadow-sm font-medium' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                <span className="hidden sm:inline">Blocos</span>
+              </button>
+              <button 
+                onClick={() => setViewMode('table')}
+                className={`p-2 rounded-md transition-all flex items-center gap-2 text-sm ${
+                  viewMode === 'table' 
+                    ? 'bg-white text-blue-600 shadow-sm font-medium' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <LayoutList className="w-4 h-4" />
+                <span className="hidden sm:inline">Lista Detalhada</span>
+              </button>
+            </div>
+            <div className="text-sm text-gray-500 ml-2 border-l pl-4 border-gray-200">
+              Total: <strong>{metrics.total}</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -189,13 +235,17 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
       {metrics.total === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
            <Search className="w-12 h-12 text-gray-300 mb-4" />
-           <p className="text-gray-500 font-medium">Nenhum resultado encontrado para o filtro.</p>
-           <button 
-             onClick={() => setSearchTerm('')}
-             className="mt-2 text-blue-600 hover:underline text-sm"
-           >
-             Limpar filtros
-           </button>
+           <p className="text-gray-500 font-medium">
+             {searchTerm ? "Nenhum resultado encontrado para o filtro." : "A base de dados está vazia."}
+           </p>
+           {searchTerm && (
+             <button 
+               onClick={() => setSearchTerm('')}
+               className="mt-2 text-blue-600 hover:underline text-sm"
+             >
+               Limpar filtros
+             </button>
+           )}
         </div>
       ) : (
         <>
@@ -225,10 +275,12 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
-            {/* Charts Section */}
+            {/* Charts & List Section */}
             <div className="lg:col-span-2 space-y-6">
+              
+              {/* Chart */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-800 mb-6">Visualização dos Chamados</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-6">Tendência das Últimas Avaliações</h3>
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={metrics.recentTrend}>
@@ -257,35 +309,127 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                 </div>
               </div>
 
+              {/* Data Display: Cards or Table */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Lista de Avaliações ({metrics.total})</h3>
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                  {filteredData.slice().reverse().map((response) => (
-                    <div key={response.id} className="p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
-                        <div className="flex flex-col sm:flex-row justify-between items-start mb-2 gap-2">
-                            <div>
-                                <span className="font-bold text-gray-800 text-sm block">{response.customerId}</span>
-                                <span className="text-xs text-gray-500 font-mono bg-gray-200 px-1 py-0.5 rounded">Chamado #{response.ticketId}</span>
-                                <span className="text-xs text-gray-400 ml-2">{new Date(response.timestamp).toLocaleDateString()}</span>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex justify-between items-center">
+                  <span>Avaliações Recentes</span>
+                  <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                    {viewMode === 'cards' ? 'Visualização: Blocos' : 'Visualização: Tabela'}
+                  </span>
+                </h3>
+                
+                <div className="overflow-hidden">
+                  {viewMode === 'cards' ? (
+                    // CARD VIEW
+                    <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar pb-12">
+                      {filteredData.slice().reverse().map((response) => (
+                        <div key={response.id} className="relative group p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-blue-200 hover:bg-white hover:shadow-sm transition-all">
+                            <div className="flex flex-col sm:flex-row justify-between items-start mb-2 gap-2 pr-8">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-xs font-mono font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">#{response.ticketId}</span>
+                                      <span className="text-xs text-gray-400">{new Date(response.timestamp).toLocaleDateString()}</span>
+                                    </div>
+                                    <span className="font-bold text-gray-800 text-sm block">{response.customerId}</span>
+                                </div>
+                                <div className="flex gap-2 text-xs text-gray-400 mt-2 sm:mt-0">
+                                    <span className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200" title="Abertura"><MousePointerClick size={12} className="text-blue-500"/> {response.easeRating}</span>
+                                    <span className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200" title="Agendamento"><CalendarClock size={12} className="text-indigo-500"/> {response.processRating}</span>
+                                    <span className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200" title="Solução"><Wrench size={12} className="text-green-500"/> {response.solutionRating}</span>
+                                </div>
                             </div>
-                            <div className="flex gap-2 text-xs text-gray-400">
-                                <span className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200" title="Abertura"><MousePointerClick size={12} className="text-blue-500"/> {response.easeRating}</span>
-                                <span className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200" title="Agendamento"><CalendarClock size={12} className="text-indigo-500"/> {response.processRating}</span>
-                                <span className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200" title="Solução"><Wrench size={12} className="text-green-500"/> {response.solutionRating}</span>
-                            </div>
+                            {response.comment && (
+                               <p className="text-gray-600 text-sm italic mt-3 border-l-2 border-gray-300 pl-3 bg-white/50 py-1">"{response.comment}"</p>
+                            )}
+                            
+                            {/* Render Delete Button - High Priority Z-Index Wrapper */}
+                            {onDelete && (
+                              <div className="absolute top-2 right-2 z-50">
+                                <button 
+                                  type="button"
+                                  onClick={(e) => handleDeleteClick(e, response.id)}
+                                  className="p-2 bg-white text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full shadow-sm border border-gray-200 transition-all cursor-pointer"
+                                  title="Excluir este registro"
+                                >
+                                  <Trash2 className="w-4 h-4 pointer-events-none" />
+                                </button>
+                              </div>
+                            )}
                         </div>
-                        {response.comment && (
-                           <p className="text-gray-600 text-sm italic mt-2 border-l-2 border-gray-300 pl-3">"{response.comment}"</p>
-                        )}
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    // TABLE VIEW
+                    <div className="max-h-[600px] overflow-y-auto border rounded-lg custom-scrollbar">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                          <tr>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Chamado</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente / Data</th>
+                            <th scope="col" className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Abertura">Abert.</th>
+                            <th scope="col" className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Agendamento">Agend.</th>
+                            <th scope="col" className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" title="Solução">Sol.</th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">Comentário</th>
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {filteredData.slice().reverse().map((response) => (
+                            <tr key={response.id} className="hover:bg-gray-50 transition-colors group">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 font-mono">
+                                <span className="bg-gray-100 px-2 py-1 rounded">#{response.ticketId}</span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                <div className="font-medium text-gray-800">{response.customerId}</div>
+                                <div className="text-xs text-gray-400">{new Date(response.timestamp).toLocaleString()}</div>
+                              </td>
+                              <td className="px-2 py-3 text-center">
+                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(response.easeRating)}`}>
+                                  {response.easeRating}
+                                </span>
+                              </td>
+                              <td className="px-2 py-3 text-center">
+                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(response.processRating)}`}>
+                                  {response.processRating}
+                                </span>
+                              </td>
+                              <td className="px-2 py-3 text-center">
+                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${getRatingColor(response.solutionRating)}`}>
+                                  {response.solutionRating}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500">
+                                {response.comment ? (
+                                  <span className="italic block max-w-xs truncate" title={response.comment}>"{response.comment}"</span>
+                                ) : (
+                                  <span className="text-gray-300 text-xs">-</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
+                                {onDelete && (
+                                    <button 
+                                      type="button"
+                                      onClick={(e) => handleDeleteClick(e, response.id)}
+                                      className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full p-2 transition-colors cursor-pointer"
+                                      title="Excluir Avaliação"
+                                    >
+                                      <Trash2 className="w-4 h-4 pointer-events-none" />
+                                    </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* AI Analysis Section */}
             <div className="lg:col-span-1">
-              <div className="bg-white h-full rounded-xl shadow-sm border border-gray-100 flex flex-col">
+              <div className="bg-white h-full rounded-xl shadow-sm border border-gray-100 flex flex-col sticky top-6">
                 <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
                   <div className="flex items-center gap-2 text-indigo-700 mb-2">
                     <BrainCircuit className="w-6 h-6" />
@@ -312,7 +456,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
                   </button>
                 </div>
                 
-                <div className="p-6 flex-1 overflow-y-auto">
+                <div className="p-6 flex-1 overflow-y-auto max-h-[500px] custom-scrollbar">
                   {!analysis && !loadingAnalysis && (
                     <div className="text-center text-gray-400 py-10">
                       <BrainCircuit className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -380,6 +524,88 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset }) => {
           </div>
         </>
       )}
+
+      {/* NEW: Management Modal (Edit/Delete List) */}
+      {showManageModal && (
+         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden animate-scale-in">
+             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+               <div>
+                 <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                   <Edit className="w-5 h-5 text-blue-600" />
+                   Gerenciar Respostas
+                 </h3>
+                 <p className="text-sm text-gray-500">Visualize todas as respostas e exclua registros individualmente.</p>
+               </div>
+               <button onClick={() => setShowManageModal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                 <X className="w-6 h-6 text-gray-500" />
+               </button>
+             </div>
+             
+             <div className="flex-1 overflow-auto bg-white p-6">
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm text-xs uppercase text-gray-500 font-semibold">
+                      <tr>
+                        <th className="p-4 border-b">Data / Hora</th>
+                        <th className="p-4 border-b">Chamado</th>
+                        <th className="p-4 border-b">Cliente</th>
+                        <th className="p-4 border-b text-center" title="Facilidade/Processo/Solução">Notas (F/P/S)</th>
+                        <th className="p-4 border-b w-1/3">Comentário</th>
+                        <th className="p-4 border-b text-center">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
+                      {data.length === 0 ? (
+                        <tr><td colSpan={6} className="p-8 text-center text-gray-400">Nenhum registro encontrado no banco de dados.</td></tr>
+                      ) : (
+                        data.slice().reverse().map(item => (
+                          <tr key={item.id} className="hover:bg-blue-50 transition-colors">
+                            <td className="p-4 whitespace-nowrap text-gray-500 text-xs">
+                              {new Date(item.timestamp).toLocaleDateString()} <br/>
+                              <span className="text-gray-400">{new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            </td>
+                            <td className="p-4 font-mono font-medium">#{item.ticketId}</td>
+                            <td className="p-4 font-medium">{item.customerId}</td>
+                            <td className="p-4 text-center">
+                              <div className="inline-flex gap-1">
+                                <span className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold ${getRatingColor(item.easeRating)}`}>{item.easeRating}</span>
+                                <span className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold ${getRatingColor(item.processRating)}`}>{item.processRating}</span>
+                                <span className={`w-6 h-6 flex items-center justify-center rounded text-xs font-bold ${getRatingColor(item.solutionRating)}`}>{item.solutionRating}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 text-gray-500 italic">
+                              {item.comment ? `"${item.comment}"` : <span className="text-gray-300">-</span>}
+                            </td>
+                            <td className="p-4 text-center">
+                              <button 
+                                onClick={(e) => handleDeleteClick(e, item.id)}
+                                className="bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 mx-auto shadow-sm cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3 pointer-events-none" /> 
+                                Excluir
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+             </div>
+             
+             <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                <button 
+                  onClick={() => setShowManageModal(false)}
+                  className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors"
+                >
+                  Fechar
+                </button>
+             </div>
+           </div>
+         </div>
+       )}
+
     </div>
   );
 };

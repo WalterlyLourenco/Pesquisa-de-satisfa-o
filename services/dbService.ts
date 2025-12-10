@@ -48,9 +48,28 @@ export const dbService = {
     return updatedData;
   },
 
-  // Reseta o banco para o estado inicial
+  // Remove um registro específico pelo ID
+  remove: (id: string): SurveyResponse[] => {
+    const currentData = dbService.getAll();
+    const updatedData = currentData.filter(item => item.id !== id);
+    try {
+      localStorage.setItem(DB_KEY, JSON.stringify(updatedData));
+    } catch (e) {
+      console.error("Erro ao salvar no banco de dados local", e);
+    }
+    return updatedData;
+  },
+
+  // Reseta o banco para o estado inicial (Seed Data)
   reset: (): SurveyResponse[] => {
     localStorage.setItem(DB_KEY, JSON.stringify(SEED_DATA));
     return SEED_DATA;
+  },
+
+  // Zera completamente o banco de dados
+  clear: (): SurveyResponse[] => {
+    const empty: SurveyResponse[] = [];
+    localStorage.setItem(DB_KEY, JSON.stringify(empty));
+    return empty;
   }
 };

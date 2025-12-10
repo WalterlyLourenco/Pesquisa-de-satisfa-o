@@ -18,12 +18,24 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit, onValidateTicket }) =
   const [submitted, setSubmitted] = useState(false);
 
   // Handle numeric only input for Ticket ID
+  // CRITICAL: Keep as string to preserve leading zeros (e.g. "0001")
   const handleTicketChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Allow only numbers
+    // Allow only numbers regex, but store as string
     if (/^\d*$/.test(value)) {
       setTicketId(value);
-      setTicketError('');
+      // Clear error while typing to allow correction
+      if (ticketError) setTicketError('');
+    }
+  };
+
+  // Immediate validation when user leaves the field
+  const handleTicketBlur = () => {
+    if (ticketId.trim()) {
+      const exists = onValidateTicket(ticketId);
+      if (exists) {
+        setTicketError("Este chamado já foi avaliado anteriormente. Verifique o número.");
+      }
     }
   };
 
@@ -45,10 +57,10 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit, onValidateTicket }) =
       return;
     }
 
-    // Validate Ticket ID uniqueness
+    // Validate Ticket ID uniqueness (Final check)
     const exists = onValidateTicket(ticketId);
     if (exists) {
-      setTicketError("Este número de chamado já possui uma avaliação registrada.");
+      setTicketError("Avaliação para este chamado já respondido!");
       return;
     }
 
@@ -153,21 +165,22 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit, onValidateTicket }) =
                 inputMode="numeric"
                 value={ticketId}
                 onChange={handleTicketChange}
-                placeholder="Ex: 102030"
+                onBlur={handleTicketBlur}
+                placeholder="Ex: 001234"
                 required
                 className={`w-full px-4 py-3 border rounded-lg focus:ring-2 outline-none transition-all font-mono text-lg tracking-wide ${
                   ticketError 
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500' 
+                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500 bg-red-50' 
                     : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
                 }`}
               />
               {ticketError && (
-                <div className="flex items-center gap-1 mt-2 text-red-500 text-xs animate-fade-in">
-                  <AlertCircle className="w-3 h-3" />
+                <div className="flex items-center gap-1 mt-2 text-red-600 text-xs font-semibold animate-fade-in">
+                  <AlertCircle className="w-4 h-4" />
                   <span>{ticketError}</span>
                 </div>
               )}
-              <p className="text-xs text-gray-400 mt-1">Apenas números permitidos.</p>
+              <p className="text-xs text-gray-400 mt-1">Apenas números permitidos (zeros à esquerda são mantidos).</p>
             </div>
              <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Identificação do Cliente <span className="text-red-500">*</span></label>

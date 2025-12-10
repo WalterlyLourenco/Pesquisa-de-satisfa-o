@@ -1,13 +1,25 @@
 import React, { useState } from 'react';
-import { Lock, X, KeyRound } from 'lucide-react';
+import { Lock, X, KeyRound, AlertTriangle } from 'lucide-react';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogin: (password: string) => void;
+  title?: string;
+  description?: string;
+  buttonText?: string;
+  isDestructive?: boolean;
 }
 
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => {
+const LoginModal: React.FC<LoginModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onLogin,
+  title = "Acesso Administrativo",
+  description = "Para visualizar o Dashboard com as respostas e análises, por favor insira a senha de administrador.",
+  buttonText = "Entrar",
+  isDestructive = false
+}) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
 
@@ -21,17 +33,18 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => 
     onLogin(password);
     // Reset internal state
     setPassword('');
+    setError(false); // Reset error state on submit attempt (parent handles actual validation logic usually, but here we just pass password)
   };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
         <div className="bg-gray-50 p-6 border-b border-gray-100 flex justify-between items-center">
-          <div className="flex items-center gap-2 text-gray-800">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <Lock className="w-5 h-5 text-blue-600" />
+          <div className={`flex items-center gap-2 ${isDestructive ? 'text-red-700' : 'text-gray-800'}`}>
+            <div className={`p-2 rounded-lg ${isDestructive ? 'bg-red-100' : 'bg-blue-100'}`}>
+              {isDestructive ? <AlertTriangle className={`w-5 h-5 ${isDestructive ? 'text-red-600' : 'text-blue-600'}`} /> : <Lock className="w-5 h-5 text-blue-600" />}
             </div>
-            <h3 className="font-bold text-lg">Acesso Administrativo</h3>
+            <h3 className="font-bold text-lg">{title}</h3>
           </div>
           <button 
             onClick={onClose}
@@ -43,7 +56,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => 
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <p className="text-gray-600 text-sm">
-            Para visualizar o Dashboard com as respostas e análises, por favor insira a senha de administrador.
+            {description}
           </p>
 
           <div className="space-y-2">
@@ -60,7 +73,9 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => 
                 className={`w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 transition-all ${
                   error 
                     ? 'border-red-300 focus:ring-red-200' 
-                    : 'border-gray-300 focus:ring-blue-100 focus:border-blue-500'
+                    : isDestructive 
+                      ? 'border-gray-300 focus:ring-red-100 focus:border-red-500' 
+                      : 'border-gray-300 focus:ring-blue-100 focus:border-blue-500'
                 }`}
                 placeholder="••••••••"
                 autoFocus
@@ -79,9 +94,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => 
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md transition-colors"
+              className={`flex-1 px-4 py-2 text-white rounded-lg font-medium shadow-md transition-colors ${
+                isDestructive 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
-              Entrar
+              {buttonText}
             </button>
           </div>
         </form>
