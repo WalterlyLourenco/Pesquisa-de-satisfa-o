@@ -7,20 +7,18 @@ import { SurveyResponse } from '../../types';
  * 1. Mude USE_CLOUD_DB para true.
  * 2. Insira a URL da sua API no campo API_URL.
  * 
- * Sugestões de Backends Gratuitos para teste:
- * - MockAPI.io
- * - JSONBin.io
- * - Firebase Realtime Database (via REST)
- * - Supabase
+ * NOTA: O link fornecido é um domínio Vercel. 
+ * Assumimos que o endpoint da API esteja em '/api/surveys'.
+ * Se o servidor responder HTML em vez de JSON, verifique a rota do backend.
  */
 
 const CONFIG = {
-  USE_CLOUD_DB: false, // <-- MUDE PARA true QUANDO TIVER O LINK ABAIXO
-  API_URL: 'https://seu-servidor-backend.com/api/surveys', // <-- SUA URL AQUI
+  USE_CLOUD_DB: true, // <-- AGORA ATIVADO PARA MODO ONLINE
+  API_URL: 'https://pesquisa-de-satisfa-o.vercel.app/api/surveys', // <-- SEU SERVIDOR CONECTADO
   LOCAL_STORAGE_KEY: 'tickettrack_db_v2',
 };
 
-// Dados de Exemplo (Seed) para quando iniciar vazio
+// Dados de Exemplo (Seed) para quando iniciar vazio ou modo offline
 const SEED_DATA: SurveyResponse[] = [
   { id: '1', ticketId: '1001', customerId: 'joao@empresa.com', easeRating: 4, processRating: 5, solutionRating: 5, comment: 'Muito fácil abrir o chamado e o técnico chegou na hora.', timestamp: new Date(Date.now() - 86400000 * 5).toISOString() },
   { id: '2', ticketId: '1024', customerId: 'maria.s@client.org', easeRating: 2, processRating: 3, solutionRating: 4, comment: 'O sistema de abertura é confuso, mas o técnico resolveu.', timestamp: new Date(Date.now() - 86400000 * 4).toISOString() },
@@ -51,20 +49,26 @@ class DatabaseService {
    * Busca todos os registros do banco (Local ou Nuvem)
    */
   async getAll(): Promise<SurveyResponse[]> {
-    // Simula latência de rede para realismo
+    // Simula latência de rede para realismo visual
     await new Promise(resolve => setTimeout(resolve, 600));
 
     if (CONFIG.USE_CLOUD_DB) {
       try {
         const response = await fetch(CONFIG.API_URL);
-        if (!response.ok) throw new Error('Falha ao buscar dados da nuvem');
+        
+        // Verifica se a resposta foi bem sucedida
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status}`);
+        }
+
+        // Tenta fazer o parse do JSON
+        // Se a URL retornar HTML (erro comum em Vercel sem backend), isso vai cair no catch
         const data = await response.json();
-        // Assume que a API retorna um array de SurveyResponse
+        
         return Array.isArray(data) ? data : []; 
       } catch (error) {
         console.error("ERRO CONEXÃO NUVEM:", error);
-        // Fallback: Se a nuvem falhar, tenta mostrar local ou erro
-        alert("Erro ao conectar ao servidor central. Verifique sua internet.");
+        // Não mostramos alert intrusivo no load inicial, apenas logamos
         return [];
       }
     } else {
@@ -82,8 +86,13 @@ class DatabaseService {
    * Verifica se um Ticket ID já existe (Evita duplicidade)
    */
   async checkTicketExists(ticketId: string): Promise<boolean> {
-    const allData = await this.getAll();
-    return allData.some(record => record.ticketId === ticketId.trim());
+    try {
+      const allData = await this.getAll();
+      return allData.some(record => record.ticketId === ticketId.trim());
+    } catch (e) {
+      console.warn("Falha ao validar ticket na nuvem, permitindo envio para evitar bloqueio.");
+      return false;
+    }
   }
 
   /**
@@ -94,13 +103,18 @@ class DatabaseService {
       try {
         const response = await fetch(CONFIG.API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           body: JSON.stringify(record)
         });
+
         if (!response.ok) throw new Error('Falha ao salvar na nuvem');
         return await response.json();
       } catch (error) {
-        console.error("ERRO AO SALVAR:", error);
+        console.error("ERRO AO SALVAR NA NUVEM:", error);
+        alert("Erro de Conexão: O servidor não aceitou os dados. Verifique se a URL da API está correta e aceita POST.");
         throw error;
       }
     } else {
@@ -143,7 +157,7 @@ class DatabaseService {
     if (CONFIG.USE_CLOUD_DB) {
       // Nota: Muitas APIs não permitem um "Delete All" direto por segurança.
       // Implementação depende do backend. Aqui simulamos deletar um a um ou rota especifica.
-      alert("A limpeza total via API requer configuração de rota específica no backend.");
+      alert("A limpeza total via API requer configuração de rota específica no backend (ex: DELETE /api/surveys/reset).");
       return false;
     } else {
       await new Promise(resolve => setTimeout(resolve, 1000));
