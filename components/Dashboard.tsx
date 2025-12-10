@@ -131,10 +131,11 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete, onRefres
   const handleDeleteClick = (e: React.MouseEvent, id: string) => {
     // CRITICAL: Stop propagation to prevent card click events or parent containers from intercepting
     e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation(); // Ensure it stops immediately
     e.preventDefault();
     
     // Safety confirmation dialog
-    if (window.confirm("Tem certeza que deseja excluir este registro permanentemente?")) {
+    if (window.confirm("Confirmação: Deseja EXCLUIR este registro permanentemente?")) {
       if (onDelete) {
         onDelete(id);
       }
@@ -372,7 +373,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete, onRefres
                                 <button 
                                   type="button"
                                   onClick={(e) => handleDeleteClick(e, response.id)}
-                                  className="p-2 bg-white text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full shadow-sm border border-gray-200 transition-all cursor-pointer"
+                                  className="p-2 bg-white text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full shadow-sm border border-gray-200 transition-all cursor-pointer hover:scale-110 active:scale-95"
                                   title="Excluir este registro"
                                 >
                                   <Trash2 className="w-4 h-4 pointer-events-none" />
@@ -604,7 +605,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete, onRefres
                             <td className="p-4 text-center">
                               <button 
                                 onClick={(e) => handleDeleteClick(e, item.id)}
-                                className="bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 mx-auto shadow-sm cursor-pointer"
+                                className="bg-white border border-red-200 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 mx-auto shadow-sm cursor-pointer hover:scale-105 active:scale-95"
                               >
                                 <Trash2 className="w-3 h-3 pointer-events-none" /> 
                                 Excluir
