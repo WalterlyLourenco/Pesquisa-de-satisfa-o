@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, MessageSquarePlus, Database, Check, Lock } from 'lucide-react';
+import { LayoutDashboard, MessageSquarePlus, Database, Check, Lock, Loader2, Wifi } from 'lucide-react';
 import SurveyForm from './components/SurveyForm';
 import Dashboard from './components/Dashboard';
 import LoginModal from './components/LoginModal';
@@ -9,6 +9,11 @@ import { dbService } from './services/dbService';
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.SURVEY);
   const [surveyData, setSurveyData] = useState<SurveyResponse[]>([]);
+  
+  // Loading States
+  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState({ title: '', msg: '' });
   
@@ -21,56 +26,84 @@ const App: React.FC = () => {
 
   // Load data from "Database" on mount
   useEffect(() => {
-    const data = dbService.getAll();
-    setSurveyData(data);
+    fetchData();
   }, []);
 
-  // Validation function to prevent duplicate tickets
-  const handleValidateTicket = (ticketId: string): boolean => {
-    return dbService.checkTicketExists(ticketId);
+  const fetchData = async () => {
+    setIsAppLoading(true);
+    try {
+      const data = await dbService.getAll();
+      setSurveyData(data);
+    } catch (error) {
+      console.error("Erro ao conectar com banco de dados", error);
+    } finally {
+      setIsAppLoading(false);
+    }
   };
 
-  const handleSurveySubmit = (newResponse: Omit<SurveyResponse, 'id' | 'timestamp'>) => {
+  // Validation function to prevent duplicate tickets
+  const handleValidateTicket = async (ticketId: string): Promise<boolean> => {
+    return await dbService.checkTicketExists(ticketId);
+  };
+
+  const handleSurveySubmit = async (newResponse: Omit<SurveyResponse, 'id' | 'timestamp'>) => {
+    setIsProcessing(true);
+    
     const fullResponse: SurveyResponse = {
       ...newResponse,
       id: Math.random().toString(36).substr(2, 9),
       timestamp: new Date().toISOString(),
     };
     
-    // Save to Database
-    const updatedList = dbService.add(fullResponse);
-    setSurveyData(updatedList);
-    
-    // Show feedback
-    setToastMessage({ title: 'Sucesso!', msg: 'Avaliação salva no banco de dados.' });
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    try {
+      // Save to "Cloud" Database
+      await dbService.add(fullResponse);
+      
+      // Update local state by refetching or appending (appending is faster)
+      setSurveyData(prev => [...prev, fullResponse]);
+      
+      // Show feedback
+      setToastMessage({ title: 'Sucesso!', msg: 'Avaliação sincronizada com o servidor.' });
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+      alert("Erro ao salvar dados. Verifique sua conexão.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleDeleteResponse = (id: string) => {
-    // IMMEDIATE ACTION: No confirmation dialog to ensure it works
-    // Remove from Database
-    dbService.remove(id);
-    
-    // Update UI state immediately
-    setSurveyData(prevData => {
-      const newData = prevData.filter(item => item.id !== id);
-      return newData;
-    });
+  const handleDeleteResponse = async (id: string) => {
+    // Optimistic Update: Update UI immediately, then sync
+    const originalData = [...surveyData];
+    setSurveyData(prevData => prevData.filter(item => item.id !== id));
 
-    // Optional feedback could be added here, but keeping it fast
+    try {
+      await dbService.remove(id);
+    } catch (error) {
+      // Revert if failed
+      setSurveyData(originalData);
+      alert("Falha ao excluir registro do servidor.");
+    }
   };
 
   const handleResetDatabaseClick = () => {
     setShowClearDataModal(true);
   };
 
-  const handleClearDataConfirm = (password: string) => {
+  const handleClearDataConfirm = async (password: string) => {
     if (password === 'Service123') {
-      const emptyData = dbService.clear();
-      setSurveyData(emptyData);
-      setShowClearDataModal(false);
-      alert("Sucesso: Todas as informações foram zeradas.");
+      setIsProcessing(true);
+      try {
+        await dbService.clear();
+        setSurveyData([]);
+        setShowClearDataModal(false);
+        alert("Sucesso: Base de dados na nuvem foi limpa.");
+      } catch (e) {
+        alert("Erro ao limpar dados.");
+      } finally {
+        setIsProcessing(false);
+      }
     } else {
       alert("Senha incorreta!");
     }
@@ -94,8 +127,33 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRefreshData = async () => {
+    await fetchData();
+  };
+
+  // Global Loading Screen
+  if (isAppLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-blue-600">
+        <Loader2 className="w-12 h-12 animate-spin mb-4" />
+        <h2 className="text-xl font-bold text-gray-800">Conectando ao TicketTrack DB...</h2>
+        <p className="text-sm text-gray-400">Sincronizando dados...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col relative">
+      {/* Processing Overlay */}
+      {isProcessing && (
+        <div className="fixed inset-0 bg-black/30 z-[200] flex items-center justify-center backdrop-blur-[1px]">
+          <div className="bg-white p-4 rounded-lg shadow-lg flex items-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <span className="font-medium text-gray-700">Processando requisição...</span>
+          </div>
+        </div>
+      )}
+
       {/* Auth Modal for Dashboard Access */}
       <LoginModal 
         isOpen={showLoginModal} 
@@ -108,9 +166,9 @@ const App: React.FC = () => {
         isOpen={showClearDataModal} 
         onClose={() => setShowClearDataModal(false)}
         onLogin={handleClearDataConfirm}
-        title="Zerar Dashboard"
-        description="ATENÇÃO: Esta ação apagará TODOS os dados permanentemente. Para confirmar, digite a senha administrativa."
-        buttonText="Confirmar Exclusão"
+        title="Zerar Database Online"
+        description="ATENÇÃO: Esta ação apagará TODOS os dados no servidor permanentemente."
+        buttonText="Confirmar Exclusão Remota"
         isDestructive={true}
       />
 
@@ -132,6 +190,10 @@ const App: React.FC = () => {
             <div className="flex items-center">
               <span className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg text-white font-bold mr-3">T</span>
               <span className="text-xl font-bold text-gray-900 tracking-tight">TicketTrack AI</span>
+              <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded-full border border-green-200 flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                Online
+              </span>
             </div>
             <div className="flex items-center space-x-4">
               <button
@@ -171,7 +233,7 @@ const App: React.FC = () => {
             />
             <div className="mt-8 text-center text-sm text-gray-400 flex justify-center items-center gap-2">
               <Database className="w-4 h-4" />
-              <p>Conectado ao banco de dados local.</p>
+              <p>Conectado ao servidor seguro.</p>
             </div>
           </div>
         ) : (
@@ -181,6 +243,7 @@ const App: React.FC = () => {
                 data={surveyData} 
                 onReset={handleResetDatabaseClick} 
                 onDelete={handleDeleteResponse}
+                onRefresh={handleRefreshData}
               />
             ) : (
               // Fallback protection if manual state change happens

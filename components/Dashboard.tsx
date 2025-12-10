@@ -6,7 +6,7 @@ import {
 import { 
   BrainCircuit, Loader2, TrendingUp, AlertTriangle, MessageSquare, 
   MousePointerClick, CalendarClock, Wrench, RefreshCw, Clock, 
-  Download, Search, X, Trash2, LayoutGrid, LayoutList, Edit, CheckSquare
+  Download, Search, X, Trash2, LayoutGrid, LayoutList, Edit, CheckSquare, RefreshCcw
 } from 'lucide-react';
 import { SurveyResponse, AIAnalysisResult } from '../types';
 import { analyzeSurveyData } from '../services/geminiService';
@@ -15,14 +15,16 @@ interface DashboardProps {
   data: SurveyResponse[];
   onReset?: () => void;
   onDelete?: (id: string) => void;
+  onRefresh?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete, onRefresh }) => {
   const [analysis, setAnalysis] = useState<AIAnalysisResult | null>(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [showManageModal, setShowManageModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filter Data based on Search Term
   const filteredData = useMemo(() => {
@@ -62,6 +64,14 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete }) => {
       console.error("Analysis failed", error);
     } finally {
       setLoadingAnalysis(false);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    if (onRefresh) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setTimeout(() => setIsRefreshing(false), 500); // Visual delay
     }
   };
 
@@ -123,8 +133,11 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete }) => {
     e.stopPropagation();
     e.preventDefault();
     
-    if (onDelete) {
-      onDelete(id);
+    // Safety confirmation dialog
+    if (window.confirm("Tem certeza que deseja excluir este registro permanentemente?")) {
+      if (onDelete) {
+        onDelete(id);
+      }
     }
   };
 
@@ -141,7 +154,18 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete }) => {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Dashboard de Qualidade</h2>
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+              Dashboard de Qualidade
+              {onRefresh && (
+                <button 
+                  onClick={handleManualRefresh}
+                  className={`p-2 rounded-full hover:bg-gray-200 transition-all ${isRefreshing ? 'animate-spin bg-blue-100 text-blue-600' : 'text-gray-400'}`}
+                  title="Sincronizar dados"
+                >
+                  <RefreshCcw className="w-4 h-4" />
+                </button>
+              )}
+            </h2>
             <p className="text-gray-500">Monitoramento da experiência do cliente e eficácia técnica</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -170,7 +194,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, onReset, onDelete }) => {
                   title="Zerar Banco de Dados (Requer Senha)"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Zerar Dashboard
+                  Zerar DB
                 </button>
               )}
           </div>

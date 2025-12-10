@@ -2,7 +2,7 @@ import { SurveyResponse } from '../types';
 
 const DB_KEY = 'tickettrack_db_v2';
 
-// Dados iniciais (Seed Data) atualizados para o novo formato
+// SEED DATA (Simulação de dados iniciais no servidor)
 const SEED_DATA: SurveyResponse[] = [
   { id: '1', ticketId: '1001', customerId: 'joao@empresa.com', easeRating: 4, processRating: 5, solutionRating: 5, comment: 'Muito fácil abrir o chamado e o técnico chegou na hora.', timestamp: new Date(Date.now() - 86400000 * 5).toISOString() },
   { id: '2', ticketId: '1024', customerId: 'maria.s@client.org', easeRating: 2, processRating: 3, solutionRating: 4, comment: 'O sistema de abertura é confuso, mas o técnico resolveu.', timestamp: new Date(Date.now() - 86400000 * 4).toISOString() },
@@ -13,10 +13,22 @@ const SEED_DATA: SurveyResponse[] = [
   { id: '7', ticketId: '1072', customerId: 'julia@design.studio', easeRating: 2, processRating: 2, solutionRating: 2, comment: 'O técnico não trouxe as peças necessárias para a conclusão.', timestamp: new Date().toISOString() },
 ];
 
+/**
+ * MOCK CLOUD DATABASE SERVICE
+ * 
+ * Esta estrutura agora é ASSÍNCRONA (Async/Await).
+ * Para conectar com um banco real (Firebase, Supabase, API REST),
+ * você apenas substitui o conteúdo interno das funções abaixo pelas chamadas de API.
+ */
 export const dbService = {
-  // Inicializa o banco ou retorna os dados existentes
-  getAll: (): SurveyResponse[] => {
+  
+  // GET: Busca todos os dados
+  getAll: async (): Promise<SurveyResponse[]> => {
+    // Simula delay de rede (Internet)
+    await new Promise(resolve => setTimeout(resolve, 800));
+
     try {
+      // AQUI ENTRARIA: const response = await fetch('https://api.seubanco.com/surveys');
       const stored = localStorage.getItem(DB_KEY);
       if (!stored) {
         localStorage.setItem(DB_KEY, JSON.stringify(SEED_DATA));
@@ -24,52 +36,50 @@ export const dbService = {
       }
       return JSON.parse(stored);
     } catch (e) {
-      console.error("Erro ao ler banco de dados local", e);
-      return SEED_DATA;
+      console.error("Erro de conexão simulada", e);
+      return [];
     }
   },
 
-  // Verifica se um chamado já possui avaliação registrada (exata)
-  checkTicketExists: (ticketId: string): boolean => {
-    const allRecords = dbService.getAll();
+  // CHECK: Validação (geralmente feita no backend, mas simulada aqui)
+  checkTicketExists: async (ticketId: string): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 300)); // Pequeno delay
+    
+    const stored = localStorage.getItem(DB_KEY);
+    const allRecords: SurveyResponse[] = stored ? JSON.parse(stored) : [];
     return allRecords.some(record => record.ticketId === ticketId.trim());
   },
 
-  // Insere um novo registro no banco
-  add: (record: SurveyResponse): SurveyResponse[] => {
-    const currentData = dbService.getAll();
+  // POST: Salvar novo registro
+  add: async (record: SurveyResponse): Promise<SurveyResponse> => {
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Delay de salvamento
+
+    const stored = localStorage.getItem(DB_KEY);
+    const currentData: SurveyResponse[] = stored ? JSON.parse(stored) : [];
+    
     const updatedData = [...currentData, record];
-    try {
-      localStorage.setItem(DB_KEY, JSON.stringify(updatedData));
-    } catch (e) {
-      console.error("Erro ao salvar no banco de dados local", e);
-      alert("Erro: Armazenamento cheio ou indisponível.");
-    }
-    return updatedData;
+    localStorage.setItem(DB_KEY, JSON.stringify(updatedData));
+    
+    return record;
   },
 
-  // Remove um registro específico pelo ID
-  remove: (id: string): SurveyResponse[] => {
-    const currentData = dbService.getAll();
+  // DELETE: Remover registro
+  remove: async (id: string): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const stored = localStorage.getItem(DB_KEY);
+    const currentData: SurveyResponse[] = stored ? JSON.parse(stored) : [];
+    
     const updatedData = currentData.filter(item => item.id !== id);
-    try {
-      localStorage.setItem(DB_KEY, JSON.stringify(updatedData));
-    } catch (e) {
-      console.error("Erro ao salvar no banco de dados local", e);
-    }
-    return updatedData;
+    localStorage.setItem(DB_KEY, JSON.stringify(updatedData));
+    
+    return true;
   },
 
-  // Reseta o banco para o estado inicial (Seed Data)
-  reset: (): SurveyResponse[] => {
-    localStorage.setItem(DB_KEY, JSON.stringify(SEED_DATA));
-    return SEED_DATA;
-  },
-
-  // Zera completamente o banco de dados
-  clear: (): SurveyResponse[] => {
-    const empty: SurveyResponse[] = [];
-    localStorage.setItem(DB_KEY, JSON.stringify(empty));
-    return empty;
+  // DELETE ALL: Limpar banco
+  clear: async (): Promise<boolean> => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    localStorage.setItem(DB_KEY, JSON.stringify([]));
+    return true;
   }
 };

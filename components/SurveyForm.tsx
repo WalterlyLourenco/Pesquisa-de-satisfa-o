@@ -4,12 +4,14 @@ import { SurveyResponse } from '../types';
 
 interface SurveyFormProps {
   onSubmit: (data: Omit<SurveyResponse, 'id' | 'timestamp'>) => void;
-  onValidateTicket: (ticketId: string) => boolean;
+  onValidateTicket: (ticketId: string) => Promise<boolean>;
 }
 
 const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit, onValidateTicket }) => {
   const [ticketId, setTicketId] = useState('');
   const [ticketError, setTicketError] = useState('');
+  const [isCheckingTicket, setIsCheckingTicket] = useState(false);
+  
   const [customerId, setCustomerId] = useState('');
   const [easeRating, setEaseRating] = useState(0);
   const [processRating, setProcessRating] = useState(0);
@@ -30,16 +32,23 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit, onValidateTicket }) =
   };
 
   // Immediate validation when user leaves the field
-  const handleTicketBlur = () => {
+  const handleTicketBlur = async () => {
     if (ticketId.trim()) {
-      const exists = onValidateTicket(ticketId);
-      if (exists) {
-        setTicketError("Este chamado já foi avaliado anteriormente. Verifique o número.");
+      setIsCheckingTicket(true);
+      try {
+        const exists = await onValidateTicket(ticketId);
+        if (exists) {
+          setTicketError("Este chamado já foi avaliado anteriormente. Verifique o número.");
+        }
+      } catch (e) {
+        console.error("Erro ao validar ticket", e);
+      } finally {
+        setIsCheckingTicket(false);
       }
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTicketError('');
 
@@ -58,7 +67,10 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit, onValidateTicket }) =
     }
 
     // Validate Ticket ID uniqueness (Final check)
-    const exists = onValidateTicket(ticketId);
+    setIsCheckingTicket(true);
+    const exists = await onValidateTicket(ticketId);
+    setIsCheckingTicket(false);
+
     if (exists) {
       setTicketError("Avaliação para este chamado já respondido!");
       return;
@@ -160,20 +172,28 @@ const SurveyForm: React.FC<SurveyFormProps> = ({ onSubmit, onValidateTicket }) =
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">Número do Chamado <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={ticketId}
-                onChange={handleTicketChange}
-                onBlur={handleTicketBlur}
-                placeholder="Ex: 001234"
-                required
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 outline-none transition-all font-mono text-lg tracking-wide ${
-                  ticketError 
-                    ? 'border-red-500 focus:ring-red-200 focus:border-red-500 bg-red-50' 
-                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                }`}
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={ticketId}
+                  onChange={handleTicketChange}
+                  onBlur={handleTicketBlur}
+                  placeholder="Ex: 001234"
+                  required
+                  disabled={isCheckingTicket}
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 outline-none transition-all font-mono text-lg tracking-wide ${
+                    ticketError 
+                      ? 'border-red-500 focus:ring-red-200 focus:border-red-500 bg-red-50' 
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
+                />
+                {isCheckingTicket && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
               {ticketError && (
                 <div className="flex items-center gap-1 mt-2 text-red-600 text-xs font-semibold animate-fade-in">
                   <AlertCircle className="w-4 h-4" />
