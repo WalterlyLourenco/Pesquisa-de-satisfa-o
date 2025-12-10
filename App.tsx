@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, MessageSquarePlus, Database, Check, Lock, Loader2, Wifi } from 'lucide-react';
+import { LayoutDashboard, MessageSquarePlus, Database, Check, Lock, Loader2, Wifi, Cloud, CloudOff } from 'lucide-react';
 import SurveyForm from './components/SurveyForm';
 import Dashboard from './components/Dashboard';
 import LoginModal from './components/LoginModal';
 import { SurveyResponse, ViewState } from './types';
-import { dbService } from './services/dbService';
+// Import from the new Database folder
+import { database } from './services/database';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.SURVEY);
@@ -32,10 +33,12 @@ const App: React.FC = () => {
   const fetchData = async () => {
     setIsAppLoading(true);
     try {
-      const data = await dbService.getAll();
+      const data = await database.getAll();
       setSurveyData(data);
     } catch (error) {
       console.error("Erro ao conectar com banco de dados", error);
+      setToastMessage({ title: 'Erro de Conexão', msg: 'Não foi possível carregar os dados.' });
+      setShowToast(true);
     } finally {
       setIsAppLoading(false);
     }
@@ -43,7 +46,7 @@ const App: React.FC = () => {
 
   // Validation function to prevent duplicate tickets
   const handleValidateTicket = async (ticketId: string): Promise<boolean> => {
-    return await dbService.checkTicketExists(ticketId);
+    return await database.checkTicketExists(ticketId);
   };
 
   const handleSurveySubmit = async (newResponse: Omit<SurveyResponse, 'id' | 'timestamp'>) => {
@@ -56,18 +59,18 @@ const App: React.FC = () => {
     };
     
     try {
-      // Save to "Cloud" Database
-      await dbService.add(fullResponse);
+      // Save to Database (Cloud or Local based on config)
+      await database.add(fullResponse);
       
       // Update local state by refetching or appending (appending is faster)
       setSurveyData(prev => [...prev, fullResponse]);
       
       // Show feedback
-      setToastMessage({ title: 'Sucesso!', msg: 'Avaliação sincronizada com o servidor.' });
+      setToastMessage({ title: 'Sucesso!', msg: 'Avaliação salva com sucesso.' });
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
     } catch (error) {
-      alert("Erro ao salvar dados. Verifique sua conexão.");
+      alert("Erro ao salvar dados. Verifique sua conexão com o servidor.");
     } finally {
       setIsProcessing(false);
     }
@@ -79,11 +82,12 @@ const App: React.FC = () => {
     setSurveyData(prevData => prevData.filter(item => item.id !== id));
 
     try {
-      await dbService.remove(id);
+      const success = await database.remove(id);
+      if (!success) throw new Error("Falha na remoção");
     } catch (error) {
       // Revert if failed
       setSurveyData(originalData);
-      alert("Falha ao excluir registro do servidor.");
+      alert("Falha ao excluir registro do banco de dados.");
     }
   };
 
@@ -95,12 +99,12 @@ const App: React.FC = () => {
     if (password === 'Service123') {
       setIsProcessing(true);
       try {
-        await dbService.clear();
+        await database.clear();
         setSurveyData([]);
         setShowClearDataModal(false);
-        alert("Sucesso: Base de dados na nuvem foi limpa.");
+        alert("Sucesso: Base de dados foi limpa.");
       } catch (e) {
-        alert("Erro ao limpar dados.");
+        alert("Erro ao limpar dados. A API pode não suportar limpeza total.");
       } finally {
         setIsProcessing(false);
       }
@@ -137,7 +141,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-blue-600">
         <Loader2 className="w-12 h-12 animate-spin mb-4" />
         <h2 className="text-xl font-bold text-gray-800">Conectando ao TicketTrack DB...</h2>
-        <p className="text-sm text-gray-400">Sincronizando dados...</p>
+        <p className="text-sm text-gray-400">Sincronizando registros...</p>
       </div>
     );
   }
@@ -166,9 +170,9 @@ const App: React.FC = () => {
         isOpen={showClearDataModal} 
         onClose={() => setShowClearDataModal(false)}
         onLogin={handleClearDataConfirm}
-        title="Zerar Database Online"
-        description="ATENÇÃO: Esta ação apagará TODOS os dados no servidor permanentemente."
-        buttonText="Confirmar Exclusão Remota"
+        title="Zerar Banco de Dados"
+        description="ATENÇÃO: Esta ação apagará TODOS os dados registrados."
+        buttonText="Confirmar Exclusão Total"
         isDestructive={true}
       />
 
@@ -190,10 +194,12 @@ const App: React.FC = () => {
             <div className="flex items-center">
               <span className="flex items-center justify-center w-8 h-8 bg-blue-600 rounded-lg text-white font-bold mr-3">T</span>
               <span className="text-xl font-bold text-gray-900 tracking-tight">TicketTrack AI</span>
-              <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded-full border border-green-200 flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                Online
-              </span>
+              
+              {/* Connection Status Indicator */}
+              <div className="ml-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 border transition-all bg-gray-100 text-gray-600 border-gray-200">
+                <Database className="w-3 h-3" />
+                <span>Database v2.0</span>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <button
@@ -232,8 +238,8 @@ const App: React.FC = () => {
               onValidateTicket={handleValidateTicket} 
             />
             <div className="mt-8 text-center text-sm text-gray-400 flex justify-center items-center gap-2">
-              <Database className="w-4 h-4" />
-              <p>Conectado ao servidor seguro.</p>
+              <Cloud className="w-4 h-4" />
+              <p>Os dados serão armazenados na pasta <strong>services/database</strong>.</p>
             </div>
           </div>
         ) : (

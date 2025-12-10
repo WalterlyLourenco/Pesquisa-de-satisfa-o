@@ -1,17 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SurveyResponse, AIAnalysisResult } from "../types";
 
-const apiKey = process.env.API_KEY;
-
-// Initialize the client only if the key exists to prevent immediate crashes, 
-// though the app expects it to be present per requirements.
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Initialize the client directly using process.env.API_KEY as per guidelines.
+// The environment variable is assumed to be present and valid.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeSurveyData = async (data: SurveyResponse[]): Promise<AIAnalysisResult> => {
-  if (!ai) {
-    throw new Error("API Key não configurada.");
-  }
-
   // Take the last 20 responses for analysis to keep context reasonable for this demo
   const recentData = data.slice(-20);
   
